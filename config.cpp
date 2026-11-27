@@ -467,16 +467,14 @@ static bool writeConfig(FS &store, const String &path, const JsonDocument &doc) 
 
 void BruceConfig::saveFile() {
     JsonDocument doc = toJson();
-    if (LittleFS.totalBytes() > 0 && !writeConfig(LittleFS, filepath, doc))
-        log_e("Internal config save failed");
-    FS *sd = nullptr;
-    if (setupSdCard()) sd = &SD;
-    if (sd && !writeConfig(*sd, filepath, doc)) log_e("SD config save failed");
+    const bool sdOk = sdcardMounted && writeConfig(SD, filepath, doc);
+    const bool internalOk = LittleFS.totalBytes() > 0 && writeConfig(LittleFS, filepath, doc);
+    if (!sdOk && !internalOk) log_e("No writable config storage");
 }
 
 void BruceConfig::factoryReset() {
     FS *sd = nullptr;
-    if (setupSdCard()) getFsStorage(sd);
+    if (sdcardMounted) sd = &SD;
     FS *stores[] = {&LittleFS, sd == &LittleFS ? nullptr : sd};
     for (FS *store : stores) {
         if (!store) continue;

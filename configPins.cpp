@@ -327,28 +327,23 @@ void BruceConfigPins::toJson(JsonObject obj) const {
 }
 
 void BruceConfigPins::loadFile(JsonDocument &jsonDoc, bool checkFS) {
-    // Reading settings does not require free space for new files.
-    FS *fs = nullptr;
-    if (checkFS && sdcardMounted) fs = &SD;
-    else if (LittleFS.totalBytes() > 0) fs = &LittleFS;
-    if (!fs) return;
-
-    if (!fs->exists(filepath)) return createFile();
-
-    File file;
-    file = fs->open(filepath, FILE_READ);
-    if (!file) {
-        log_e("Config pins file not found. Using default values");
-        return;
+    FS *stores[] = {checkFS && sdcardMounted ? &SD : nullptr,
+                    LittleFS.totalBytes() > 0 ? &LittleFS : nullptr};
+    bool found = false;
+    for (FS *fs : stores) {
+        if (!fs) continue;
+        const String paths[] = {String(filepath), String(filepath) + ".prev"};
+        for (const String &path : paths) {
+            if (!fs->exists(path)) continue;
+            found = true;
+            File file = fs->open(path, FILE_READ);
+            jsonDoc.clear();
+            if (file && !deserializeJson(jsonDoc, file) && jsonDoc.is<JsonObject>()) return;
+        }
     }
-
-    if (deserializeJson(jsonDoc, file)) {
-        log_e("Failed to read config pins file, using default configuration");
-        return;
-    }
-    file.close();
-
-    serializeJsonPretty(jsonDoc, Serial);
+    jsonDoc.clear();
+    if (!found) createFile();
+    else log_e("No readable pin config");
 }
 
 void BruceConfigPins::fromFile(bool checkFS) {
@@ -359,56 +354,45 @@ void BruceConfigPins::fromFile(bool checkFS) {
     jsonDoc.clear();
 }
 
-void BruceConfigPins::createFile() {
-    JsonDocument jsonDoc;
-    toJson(jsonDoc.to<JsonObject>());
-    serializeJsonPretty(jsonDoc, Serial);
-
-    // Open file for writing
-    FS *fs = &LittleFS;
-    File file = fs->open(filepath, FILE_WRITE);
-    if (!file) {
-        log_e("Failed to open config file");
-        file.close();
-        return;
-    };
-
-    // Serialize JSON to file
-    if (serializeJsonPretty(jsonDoc, file) < 5) log_e("Failed to write config file");
-    else log_i("config file written successfully");
-
+// Save to a temporary file first; preserve the old copy if promotion fails.
+static bool writePinConfig(FS &fs, const String &path, const JsonDocument &doc) {
+    const String tmp = path + ".tmp", prev = path + ".prev";
+    const size_t expected = measureJsonPretty(doc);
+    if (doc.overflowed() || expected < 5) return false;
+    if (fs.exists(tmp) && !fs.remove(tmp)) return false;
+    File file = fs.open(tmp, FILE_WRITE);
+    if (!file) return false;
+    const size_t written = serializeJsonPretty(doc, file);
     file.close();
-    jsonDoc.clear();
+    if (written != expected) return false;
+    if (fs.exists(path)) {
+        if (fs.exists(prev) && !fs.remove(prev)) return false;
+        if (!fs.rename(path, prev)) return false;
+    }
+    if (!fs.rename(tmp, path)) return false;
+    if (fs.exists(prev)) fs.remove(prev);
+    return true;
+}
 
-    // don't try to mount SD Card if not previously mounted
-    if (sdcardMounted) copyToFs(LittleFS, SD, filepath, false);
+static void persistPinConfig(const String &path, const JsonDocument &doc) {
+    const bool sdOk = sdcardMounted && writePinConfig(SD, path, doc);
+    const bool internalOk = LittleFS.totalBytes() > 0 && writePinConfig(LittleFS, path, doc);
+    if (!sdOk && !internalOk) log_e("No writable pin config storage");
+}
+
+void BruceConfigPins::createFile() {
+    JsonDocument doc;
+    toJson(doc.to<JsonObject>());
+    persistPinConfig(filepath, doc);
 }
 
 void BruceConfigPins::saveFile() {
-    JsonDocument jsonDoc;
-    loadFile(jsonDoc);
-
-    if (jsonDoc.isNull()) return createFile();
-
-    jsonDoc.remove(getMacAddress());
-    toJson(jsonDoc.as<JsonObject>());
-
-    // Open file for writing
-    FS *fs = &LittleFS;
-    File file = fs->open(filepath, FILE_WRITE);
-    if (!file) {
-        log_e("Failed to open config file");
-        return;
-    };
-
-    // Serialize JSON to file
-    if (serializeJsonPretty(jsonDoc, file) < 5) log_e("Failed to write config file");
-    else log_i("config file written successfully");
-
-    file.close();
-    jsonDoc.clear();
-    // don't try to mount SD Card if not previously mounted
-    if (sdcardMounted) copyToFs(LittleFS, SD, filepath, false);
+    JsonDocument doc;
+    loadFile(doc);
+    if (doc.isNull()) return createFile();
+    doc.remove(getMacAddress());
+    toJson(doc.as<JsonObject>());
+    persistPinConfig(filepath, doc);
 }
 
 void BruceConfigPins::factoryReset() {
