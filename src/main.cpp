@@ -270,17 +270,65 @@ void begin_tft() {
  **  Function: boot_screen
  **  Draw boot screen
  *********************************************************************/
+static void drawFushBootArt(const char *status, int progressPercent, bool useThemeColors) {
+    const uint16_t bg = useThemeColors ? bruceConfig.bgColor : TFT_BLACK;
+    const uint16_t accent = useThemeColors ? bruceConfig.priColor : 0xFC00;
+    const uint16_t text = accent;
+    const uint16_t subText = useThemeColors ? bruceConfig.secColor : TFT_WHITE;
+
+    const int w = tft.width();
+    const int h = tft.height();
+    const int cx = w / 2;
+
+    tft.fillScreen(bg);
+    tft.drawRoundRect(8, 8, w - 16, h - 16, 8, accent);
+    tft.drawRoundRect(14, 14, w - 28, h - 28, 6, accent);
+
+    // Shark-fin style logo
+    tft.fillTriangle(cx - 54, 96, cx - 10, 44, cx + 12, 108, accent);
+    tft.fillTriangle(cx + 10, 108, cx + 58, 84, cx - 2, 80, accent);
+    tft.drawFastHLine(cx - 64, 118, 128, accent);
+    tft.drawFastHLine(cx - 52, 122, 104, accent);
+
+    tft.setTextColor(text, bg);
+    tft.setTextSize(2);
+    tft.drawCentreString("FUSH OS", cx, 24, 1);
+
+    tft.setTextColor(subText, bg);
+    tft.setTextSize(1);
+    tft.drawCentreString("ES3C28P EDITION", cx, 50, 1);
+
+    const int barW = w - 54;
+    const int barH = 14;
+    const int barX = (w - barW) / 2;
+    const int barY = h - 44;
+    tft.drawRoundRect(barX, barY, barW, barH, 6, accent);
+    int clamped = progressPercent;
+    if (clamped < 0) clamped = 0;
+    if (clamped > 100) clamped = 100;
+    const int fillW = ((barW - 4) * clamped) / 100;
+    if (fillW > 0) tft.fillRoundRect(barX + 2, barY + 2, fillW, barH - 4, 4, accent);
+
+    if (status && status[0]) {
+        tft.setTextColor(subText, bg);
+        tft.setTextSize(1);
+        tft.drawCentreString(status, cx, barY - 18, 1);
+    }
+
+    if (progressPercent >= 0) {
+        char pct[8];
+        snprintf(pct, sizeof(pct), "%d%%", clamped);
+        tft.setTextColor(subText, bg);
+        tft.setTextSize(1);
+        tft.drawCentreString(pct, cx, barY + barH + 6, 1);
+    }
+}
+
 void boot_screen() {
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.setTextSize(FM);
-    tft.drawPixel(0, 0, bruceConfig.bgColor);
-    tft.drawCentreString("FUSH OS", tftWidth / 2, 10, 1);
-    tft.setTextSize(FP);
-    tft.drawCentreString(BRUCE_VERSION, tftWidth / 2, 25, 1);
-    tft.setTextSize(FM);
-    tft.drawCentreString(
-        "FUSH OS", tftWidth / 2, tftHeight + 2, 1
-    ); // will draw outside the screen on non touch devices
+    drawFushBootArt("SYSTEM READY", 100, true);
+    tft.setTextColor(bruceConfig.secColor, bruceConfig.bgColor);
+    tft.setTextSize(1);
+    tft.drawCentreString(BRUCE_VERSION, tftWidth / 2, tftHeight - 22, 1);
 }
 
 /*********************************************************************
@@ -336,9 +384,7 @@ void boot_screen_anim() {
             drawn = true;
         }
         if (!boot_img && (millis() - i > 2000)) {
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-            tft.setTextSize(FM);
-            tft.drawCentreString("FUSH OS", tftWidth / 2, tftHeight / 2, 1);
+            drawFushBootArt("SYSTEM READY", 100, true);
         }
 
         if (check(AnyKeyPress)) // If any key or M5 key is pressed, it'll jump the boot screen
@@ -472,8 +518,7 @@ void setup() {
     tft.setRotation(bruceConfigPins.rotation);
     tft.fillScreen(TFT_BLACK);
     // bruceConfig is not read yet.. just to show something on screen due to long boot time
-    tft.setTextColor(0xFC00, TFT_BLACK);
-    tft.drawCentreString("Starting FUSH OS", tft.width() / 2, tft.height() / 2, 1);
+    drawFushBootArt("INITIALIZING SYSTEM", 12, false);
     RAM_LOG("first-display-elem"); // first element drawn on screen
 
     _pre_storage_gpio();
@@ -593,12 +638,12 @@ void loop() {
     tft.setLogging();
     Serial.println(
         "\n"
-        "██████  ██████  ██    ██  ██████ ███████ \n"
-        "██   ██ ██   ██ ██    ██ ██      ██      \n"
-        "██████  ██████  ██    ██ ██      █████   \n"
-        "██   ██ ██   ██ ██    ██ ██      ██      \n"
-        "██████  ██   ██  ██████   ██████ ███████ \n"
-        "                                         \n"
+        "███████ ██    ██ ███████ ██   ██ \n"
+        "██      ██    ██ ██      ██   ██ \n"
+        "█████   ██    ██ ███████ ███████ \n"
+        "██      ██    ██      ██ ██   ██ \n"
+        "██       ██████  ███████ ██   ██ \n"
+        "                                 \n"
         "         PREDATORY FIRMWARE\n\n"
         "Tips: Connect to the WebUI for better experience\n"
         "      Add your network by sending: wifi add ssid password\n\n"
