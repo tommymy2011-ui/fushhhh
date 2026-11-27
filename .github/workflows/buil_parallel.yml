@@ -5,25 +5,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Upstream multi-board release workflow: manual only.
 on:
-  push:
-    branches:
-      - main
-      - dev
-
-    paths:
-        - "**.yml"
-        - "**.h"
-        - "**.cpp"
-        - "**.py"
-        - "**.html"
-        - "**.css"
-        - "**.js"
-        - "**.ini"
-        - "**.json"
-        - "**.csv"
-    tags:
-      - "*"
   workflow_dispatch:
 
 jobs:
