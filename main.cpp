@@ -271,14 +271,16 @@ void begin_tft() {
  **  Draw boot screen
  *********************************************************************/
 void boot_screen() {
-    const uint16_t orange = 0xFC00;
-    tft.fillScreen(0x0000);
-    tft.setTextColor(orange, 0x0000);
+    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
     tft.setTextSize(FM);
-    tft.drawCentreString("FUSH OS", tftWidth / 2, tftHeight / 2 - 22, 1);
+    tft.drawPixel(0, 0, bruceConfig.bgColor);
+    tft.drawCentreString("FUSH OS", tftWidth / 2, 10, 1);
     tft.setTextSize(FP);
-    tft.drawCentreString("v" + String(BRUCE_VERSION), tftWidth / 2, tftHeight / 2 + 4, 1);
-    tft.drawCentreString("Based on Bruce", tftWidth / 2, tftHeight / 2 + 22, 1);
+    tft.drawCentreString(BRUCE_VERSION, tftWidth / 2, 25, 1);
+    tft.setTextSize(FM);
+    tft.drawCentreString(
+        "FUSH OS", tftWidth / 2, tftHeight + 2, 1
+    ); // will draw outside the screen on non touch devices
 }
 
 /*********************************************************************
@@ -303,6 +305,7 @@ void boot_screen_anim() {
                                   // Start image loop
     while (millis() < i + 7000) { // boot image lasts for 5 secs
         if ((millis() - i > 2000) && !drawn) {
+            tft.fillRect(0, 45, tftWidth, tftHeight - 45, bruceConfig.bgColor);
             if (boot_img > 0 && !drawn) {
                 tft.fillScreen(bruceConfig.bgColor);
                 if (boot_img == 5) {
@@ -331,6 +334,11 @@ void boot_screen_anim() {
                 tft.drawPixel(0, 0, 0); // Forces back communication with TFT, to avoid ghosting
             }
             drawn = true;
+        }
+        if (!boot_img && (millis() - i > 2000)) {
+            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+            tft.setTextSize(FM);
+            tft.drawCentreString("FUSH OS", tftWidth / 2, tftHeight / 2, 1);
         }
 
         if (check(AnyKeyPress)) // If any key or M5 key is pressed, it'll jump the boot screen
@@ -465,7 +473,7 @@ void setup() {
     tft.fillScreen(TFT_BLACK);
     // bruceConfig is not read yet.. just to show something on screen due to long boot time
     tft.setTextColor(0xFC00, TFT_BLACK);
-    tft.drawCentreString("Starting Fush OS", tft.width() / 2, tft.height() / 2, 1);
+    tft.drawCentreString("Starting FUSH OS", tft.width() / 2, tft.height() / 2, 1);
     RAM_LOG("first-display-elem"); // first element drawn on screen
 
     _pre_storage_gpio();

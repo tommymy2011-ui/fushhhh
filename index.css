@@ -1,6 +1,6 @@
 :root {
   --color: #ff8000;
-  --background: #101010;
+  --background: #111111;
   --light-color: color-mix(in srgb, var(--color) 20%, gray 20%);
 }
 * {

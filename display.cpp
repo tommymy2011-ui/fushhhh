@@ -1302,7 +1302,7 @@ void drawStatusBar() {
         tft.print(timeStr);
     } else {
         setTftDisplay(BORDER_PAD_X, BORDER_PAD_X, bruceConfig.priColor, FP, bruceConfig.bgColor);
-        tft.print("FUSH " + String(BRUCE_VERSION));
+        tft.print("FUSH OS " + String(BRUCE_VERSION));
     }
 
     int iconCount = 0;
